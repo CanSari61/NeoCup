@@ -17,25 +17,26 @@ jobs:
           java-version: '17'
           distribution: 'zulu'
 
-      - name: Prepare Web Directory
+      - name: Force Clean and Prepare Web Dir
         run: |
+          rm -rf www
           mkdir -p www
-          cp index.html www/
+          if [ -f index.html ]; then cp index.html www/; else echo "<html><body>Index missing</body></html>" > www/index.html; fi
 
-      - name: Install and Init Capacitor
+      - name: Install and Build Capacitor
         run: |
           npm install @capacitor/core @capacitor/cli @capacitor/android
           npx cap init NeonKacis com.neon.kacis --web-dir www --noprompt
           npx cap add android
-
-      - name: Build Android Project
-        run: |
           npx cap sync
+
+      - name: Build Android
+        run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      - name: Upload APK Artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: NeonKacis-APK
