@@ -16,35 +16,28 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Java Kurulumu (JDK 17)
+      - name: Java Kurulumu (JDK 21)
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
+          java-version: '21'
           distribution: 'zulu'
 
       - name: Capacitor ve Android Kurulumu
         run: |
-          # 1. Özel bir çalışma alanı yarat
           mkdir app_workspace
           cd app_workspace
 
-          # 2. Capacitor'ün istediği kimlik dosyasını zorla oluştur
           npm init -y
-
-          # 3. Gerekli paketleri indir
           npm install @capacitor/core @capacitor/android
           npm install -D @capacitor/cli
 
-          # 4. Oyun kodunu web klasörüne kopyala
           mkdir www
           if [ -f ../index.html ]; then cp ../index.html www/; else echo "<html><body>Oyun Kodu Bulunamadi</body></html>" > www/index.html; fi
 
-          # 5. Projeyi başlat ve Android'i ekle
-          npx cap init NeonKacis com.neon.kacis --web-dir www
+          npx cap init NeoCop com.neo.cop --web-dir www
           npx cap add android
           npx cap sync
 
-          # 6. APK Derleme işlemini başlat
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
@@ -52,5 +45,5 @@ jobs:
       - name: APK Dosyasini Yukle
         uses: actions/upload-artifact@v4
         with:
-          name: NeonKacis-APK
+          name: NeoCop-APK
           path: app_workspace/android/app/build/outputs/apk/debug/app-debug.apk
