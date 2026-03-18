@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Neon Kaçış Ultimate</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            background-color: #050505; overflow: hidden; 
+            font-family: 'Courier New', Courier, monospace;
+            user-select: none; -webkit-user-select: none; touch-action: none; color: #fff;
+        }
+        canvas { display: block; width: 100vw; height: 100vh; }
+
+        /* Arayüz */
+        .screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(5px); z-index: 10; transition: opacity 0.3s;
+        }
+        .hidden { display: none !important; }
+
+        h1 {
+            font-size: 4rem; margin-bottom: 2rem; color: #00ffff; text-align: center; letter-spacing: 5px;
+            text-shadow: 0 0 20px #00ffff, 0 0 40px #00ffff;
+        }
+
+        .btn {
+            background: transparent; border: 2px solid #ff0033; color: #ff0033;
+            padding: 15px 30px; font-size: 1.5rem; font-family: inherit; font-weight: bold;
+            margin: 10px; cursor: pointer; text-transform: uppercase; border-radius: 5px; min-width: 250px;
+            box-shadow: 0 0 10px rgba(255, 0, 51, 0.5) inset, 0 0 10px rgba(255, 0, 51, 0.5); transition: all 0.2s;
+        }
+        .btn:hover, .btn:active { background: #ff0033; color: #000; box-shadow: 0 0 20px #ff0033, 0 0 40px #ff0033; }
+        .btn-blue { border-color: #00ffff; color: #00ffff; box-shadow: 0 0 10px rgba(0, 255, 255, 0.5) inset, 0 0 10px rgba(0, 255, 255, 0.5); }
+        .btn-blue:hover, .btn-blue:active { background: #00ffff; color: #000; box-shadow: 0 0 20px #00ffff, 0 0 40px #00ffff; }
+
+        #hud {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; padding: 20px; display: flex; justify-content: space-between; align-items: flex-start; z-index: 5;
+        }
+        .score-box { font-size: 1.5rem; font-weight: bold; color: rgba(255, 255, 255, 0.9); text-shadow: 0 0 10px rgba(255,255,255,0.5); }
+        .controls-top-right { pointer-events: auto; display: flex; gap: 10px;}
+        .icon-btn {
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color: #fff; width: 40px; height: 40px; 
+            border-radius: 50%; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center;
+        }
+
+        .settings-group { margin: 20px 0; text-align: center; }
+        .settings-label { display: block; margin-bottom: 10px; font-size: 1.2rem; color: #aaa;}
+        .toggle-btn { padding: 10px 15px; margin: 0 5px; border: 1px solid #555; background: #222; color: #fff; cursor: pointer;}
+        .toggle-btn.active { background: #00ffff; color: #000; border-color: #00ffff; box-shadow: 0 0 10px #00ffff;}
+
+        #ad-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 20; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+        }
+        #ad-overlay h2 { color: #ffcc00; margin-bottom: 20px; }
+        .spinner { width: 50px; height: 50px; border: 5px solid #333; border-top-color: #00ffff; border-radius: 50%; animation: spin 1s linear infinite; margin: 20px auto; }
+        
+        #orientation-warning {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #000; color: #fff; z-index: 9999;
+            display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px;
+        }
+        @media screen and (orientation: portrait) { #orientation-warning { display: flex; } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+    <div id="orientation-warning">
+        <div style="font-size: 3rem; margin-bottom: 20px;">🔄</div>
+        <h2 id="text-rotate-title">Cihazınızı Yan Çevirin</h2>
+        <p id="text-rotate-desc">Bu oyun yatay modda oynanmak üzere tasarlanmıştır.</p>
+    </div>
+
+    <!-- 1. ANA MENÜ -->
+    <div id="screen-main" class="screen">
+        <h1 id="title-main">NEON KAÇIŞ</h1>
+        <button class="btn btn-blue" id="btn-play" onclick="startGame()">OYNA</button>
+        <button class="btn" id="btn-settings" onclick="showScreen('screen-settings')">AYARLAR</button>
+    </div>
+
+    <!-- 2. AYARLAR MENÜSÜ -->
+    <div id="screen-settings" class="screen hidden">
+        <h2 id="title-settings" style="font-size: 2.5rem; color: #fff; margin-bottom: 30px;">AYARLAR</h2>
+        
+        <div class="settings-group">
+            <span class="settings-label" id="label-sound">Ses Efektleri</span>
+            <button class="toggle-btn active" id="btn-sound-on" onclick="setSound(true)">Açık</button>
+            <button class="toggle-btn" id="btn-sound-off" onclick="setSound(false)">Kapalı</button>
+        </div>
+
+        <div class="settings-group">
+            <span class="settings-label" id="label-lang">Dil / Language</span>
+            <button class="toggle-btn active" id="btn-lang-tr" onclick="setLanguage('tr')">TR</button>
+            <button class="toggle-btn" id="btn-lang-en" onclick="setLanguage('en')">EN</button>
+            <button class="toggle-btn" id="btn-lang-es" onclick="setLanguage('es')">ES</button>
+            <button class="toggle-btn" id="btn-lang-de" onclick="setLanguage('de')">DE</button>
+        </div>
+
+        <button class="btn btn-blue" style="margin-top: 40px;" id="btn-back-settings" onclick="showScreen('screen-main')">GERİ</button>
+    </div>
+
+    <!-- 3. DURAKLATMA MENÜSÜ -->
+    <div id="screen-pause" class="screen hidden">
+        <h2 id="title-pause" style="font-size: 3rem; color: #fff; margin-bottom: 30px;">DURAKLATILDI</h2>
+        <button class="btn btn-blue" id="btn-resume" onclick="resumeGame()">DEVAM ET</button>
+        <button class="btn" id="btn-menu-pause" onclick="quitToMenu()">ANA MENÜ</button>
+    </div>
+
+    <!-- 4. OYUN BİTTİ MENÜSÜ -->
+    <div id="screen-gameover" class="screen hidden" style="background: rgba(20, 0, 0, 0.9);">
+        <h1 style="color: #ff3333; text-shadow: 0 0 20px #ff0000;" id="title-gameover">SİSTEM ÇÖKTÜ</h1>
+        <div style="font-size: 1.5rem; margin-bottom: 30px;">
+            <span id="text-final-score">Skor: </span><span id="final-score-val" style="color:#00ffff; font-weight:bold;">0</span>
+        </div>
+        <button class="btn btn-blue" id="btn-watch-ad" onclick="watchAdToContinue()" style="font-size: 1.2rem; display: flex; align-items: center; justify-content: center; gap: 10px;">
+            <span style="font-size: 1.5rem;">▶</span> <span id="text-watch-ad">Reklam İzle & Devam Et</span>
+        </button>
+        <button class="btn" id="btn-restart" onclick="resetGameAndStart()">YENİDEN BAŞLA</button>
+        <button class="btn" style="border-color: #555; color: #aaa; box-shadow: none;" id="btn-menu-go" onclick="quitToMenu()">ANA MENÜ</button>
+    </div>
+
+    <!-- 5. REKLAM SİMÜLASYONU -->
+    <div id="ad-overlay" class="hidden">
+        <h2 id="text-ad-title">Bağlantı Kuruluyor...</h2>
+        <div class="spinner"></div>
+        <p id="ad-timer" style="font-size: 2rem; color: #00ffff; margin-top: 20px;">3</p>
+        <p style="color: #666; margin-top: 40px; font-size: 0.8rem;" id="text-ad-desc">(Bu bir simülasyondur)</p>
+    </div>
+
+    <!-- HUD -->
+    <div id="hud" class="hidden">
+        <div class="score-box">
+            <div><span id="text-hud-score">SKOR: </span><span id="scoreVal">0</span></div>
+            <div style="font-size: 1rem; color: #888; margin-top: 5px;"><span id="text-hud-high">EN İYİ: </span><span id="highScoreVal">0</span></div>
+        </div>
+        <div class="controls-top-right">
+            <button class="icon-btn" onclick="pauseGame()">⏸</button>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let settings = { sound: true, lang: 'tr' };
+        let frames = 0, score = 0, highScore = localStorage.getItem('neonEscapeHighScoreV6') || 0;
+        let baseGameSpeed = 7, gameSpeed = baseGameSpeed;
+        let gameState = 'MENU', animationId, screenShakeTime = 0, chaserShake = 0, hasUsedRevive = false;
+        
+        document.getElementById('highScoreVal').innerText = highScore;
+
+        // DİL DESTEĞİ
+        const i18n = {
+            tr: { title_main: "NEON KAÇIŞ", btn_play: "OYNA", btn_settings: "AYARLAR", title_settings: "AYARLAR", label_sound: "Ses Efektleri", btn_on: "Açık", btn_off: "Kapalı", label_lang: "Dil", btn_back: "GERİ", title_pause: "DURAKLATILDI", btn_resume: "DEVAM ET", btn_menu: "ANA MENÜ", title_gameover: "SİSTEM ÇÖKTÜ", text_score: "Skor: ", btn_ad: "Reklam İzle & Devam Et", btn_restart: "YENİDEN BAŞLA", text_ad_title: "Sponsorlu İçerik...", text_ad_desc: "(Simülasyon)", hud_score: "SKOR: ", hud_high: "EN İYİ: ", rotate_title: "Cihazı Yan Çevirin", rotate_desc: "Oyun yatay modda oynanır.", danger_text: "TEHLİKE!" },
+            en: { title_main: "NEON ESCAPE", btn_play: "PLAY", btn_settings: "SETTINGS", title_settings: "SETTINGS", label_sound: "Sound Effects", btn_on: "On", btn_off: "Off", label_lang: "Language", btn_back: "BACK", title_pause: "PAUSED", btn_resume: "RESUME", btn_menu: "MAIN MENU", title_gameover: "SYSTEM CRASH", text_score: "Score: ", btn_ad: "Watch Ad to Revive", btn_restart: "RESTART", text_ad_title: "Loading Ad...", text_ad_desc: "(Simulation)", hud_score: "SCORE: ", hud_high: "BEST: ", rotate_title: "Rotate Device", rotate_desc: "Landscape mode only.", danger_text: "DANGER!" },
+            es: { title_main: "ESCAPE NEÓN", btn_play: "JUGAR", btn_settings: "AJUSTES", title_settings: "AJUSTES", label_sound: "Sonido", btn_on: "Sí", btn_off: "No", label_lang: "Idioma", btn_back: "VOLVER", title_pause: "PAUSA", btn_resume: "REANUDAR", btn_menu: "MENÚ", title_gameover: "SISTEMA CAÍDO", text_score: "Puntos: ", btn_ad: "Ver Anuncio", btn_restart: "REINICIAR", text_ad_title: "Cargando...", text_ad_desc: "(Simulación)", hud_score: "PUNTOS: ", hud_high: "MEJOR: ", rotate_title: "Girar Dispositivo", rotate_desc: "Modo horizontal.", danger_text: "¡PELIGRO!" },
+            de: { title_main: "NEON FLUCHT", btn_play: "SPIELEN", btn_settings: "OPTIONEN", title_settings: "OPTIONEN", label_sound: "Ton", btn_on: "An", btn_off: "Aus", label_lang: "Sprache", btn_back: "ZURÜCK", title_pause: "PAUSE", btn_resume: "WEITER", btn_menu: "MENÜ", title_gameover: "SYSTEMFEHLER", text_score: "Punkte: ", btn_ad: "Werbung Ansehen", btn_restart: "NEUSTART", text_ad_title: "Laden...", text_ad_desc: "(Simulation)", hud_score: "PUNKTE: ", hud_high: "BESTE: ", rotate_title: "Gerät Drehen", rotate_desc: "Nur Querformat.", danger_text: "GEFAHR!" }
+        };
+
+        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; if(gameState==='PLAYING') draw(); }
+        window.addEventListener('resize', resize); resize();
+
+        // SES MOTORU
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let sirenOsc = null;
+
+        function playSound(type) {
+            if (!settings.sound || audioCtx.state === 'suspended') return;
+            const osc = audioCtx.createOscillator(); const gainNode = audioCtx.createGain();
+            osc.connect(gainNode); gainNode.connect(audioCtx.destination);
+
+            if (type === 'jump') { osc.type = 'square'; osc.frequency.setValueAtTime(150, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(300, audioCtx.currentTime + 0.1); gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime); gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1); osc.start(); osc.stop(audioCtx.currentTime + 0.1); } 
+            else if (type === 'doubleJump') { osc.type = 'sine'; osc.frequency.setValueAtTime(300, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(600, audioCtx.currentTime + 0.15); gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime); gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15); osc.start(); osc.stop(audioCtx.currentTime + 0.15); }
+            else if (type === 'score') { osc.type = 'sine'; osc.frequency.setValueAtTime(800, audioCtx.currentTime); osc.frequency.setValueAtTime(1200, audioCtx.currentTime + 0.05); gainNode.gain.setValueAtTime(0.05, audioCtx.currentTime); gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.1); osc.start(); osc.stop(audioCtx.currentTime + 0.1); } 
+            else if (type === 'crash') { osc.type = 'sawtooth'; osc.frequency.setValueAtTime(100, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + 0.3); gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime); gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3); osc.start(); osc.stop(audioCtx.currentTime + 0.3); }
+            else if (type === 'heavyDrop') { osc.type = 'square'; osc.frequency.setValueAtTime(50, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(20, audioCtx.currentTime + 0.2); gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime); gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2); osc.start(); osc.stop(audioCtx.currentTime + 0.2); }
+            else if (type === 'click') { osc.type = 'triangle'; osc.frequency.setValueAtTime(400, audioCtx.currentTime); gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime); gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05); osc.start(); osc.stop(audioCtx.currentTime + 0.05); }
+        }
+
+        function manageSiren(active) {
+            if (!settings.sound || audioCtx.state === 'suspended') return;
+            if (active && !sirenOsc) {
+                sirenOsc = audioCtx.createOscillator();
+                let gain = audioCtx.createGain();
+                sirenOsc.type = 'sawtooth';
+                sirenOsc.frequency.setValueAtTime(40, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                sirenOsc.connect(gain); gain.connect(audioCtx.destination);
+                sirenOsc.start();
+            } else if (!active && sirenOsc) {
+                sirenOsc.stop(); sirenOsc = null;
+            }
+        }
+
+        function showScreen(id) { playSound('click'); document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden')); if (id) document.getElementById(id).classList.remove('hidden'); }
+        function setSound(val) { playSound('click'); settings.sound = val; document.getElementById('btn-sound-on').classList.toggle('active', val); document.getElementById('btn-sound-off').classList.toggle('active', !val); if (val) audioCtx.resume(); else manageSiren(false); }
+        function setLanguage(lang) { playSound('click'); settings.lang = lang; ['tr','en','es','de'].forEach(l => document.getElementById('btn-lang-'+l).classList.toggle('active', lang===l)); updateTexts(); }
+        
+        function updateTexts() { 
+            const t = i18n[settings.lang]; 
+            document.getElementById('title-main').innerText = t.title_main;
+            document.getElementById('btn-play').innerText = t.btn_play;
+            document.getElementById('btn-settings').innerText = t.btn_settings;
+            document.getElementById('title-settings').innerText = t.title_settings;
+            document.getElementById('label-sound').innerText = t.label_sound;
+            document.getElementById('btn-sound-on').innerText = t.btn_on;
+            document.getElementById('btn-sound-off').innerText = t.btn_off;
+            document.getElementById('label-lang').innerText = t.label_lang;
+            document.getElementById('btn-back-settings').innerText = t.btn_back;
+            document.getElementById('title-pause').innerText = t.title_pause;
+            document.getElementById('btn-resume').innerText = t.btn_resume;
+            document.getElementById('btn-menu-pause').innerText = t.btn_menu;
+            document.getElementById('title-gameover').innerText = t.title_gameover;
+            document.getElementById('text-final-score').innerText = t.text_score;
+            document.getElementById('text-watch-ad').innerText = t.btn_ad;
+            document.getElementById('btn-restart').innerText = t.btn_restart;
+            document.getElementById('btn-menu-go').innerText = t.btn_menu;
+            document.getElementById('text-ad-title').innerText = t.text_ad_title;
+            document.getElementById('text-ad-desc').innerText = t.text_ad_desc;
+            document.getElementById('text-rotate-title').innerText = t.rotate_title;
+            document.getElementById('text-rotate-desc').innerText = t.rotate_desc;
+            document.getElementById('text-hud-score').innerText = t.hud_score;
+            document.getElementById('text-hud-high').innerText = t.hud_high;
+        }
+        setLanguage('tr');
+
+        // YENİ: TÜM EKRANI KAPLAYAN DİNAMİK TAVAN (GLOBAL CEILING)
+        const ceil = {
+            active: false,
+            state: 'idle', // idle, lowering, holding, raising
+            y: 0, // Tavanın alt kenarı
+            targetY: 0,
+            holdTimer: 0
+        };
+
+        // OYUNCU
+        class Player {
+            constructor() { this.w = 40; this.h = 40; this.x = 120; this.y = canvas.height / 2; this.dy = 0; this.gravity = 1.0; this.jumpForce = -15; this.jumpsLeft = 2; this.color = '#00ffff'; this.trail = []; this.rotation = 0; }
+            jump() {
+                if (this.jumpsLeft > 0) {
+                    this.dy = this.jumpForce;
+                    if (this.jumpsLeft === 2) { playSound('jump'); createParticles(this.x + this.w/2, this.y + this.h, 10, '#ffffff'); } 
+                    else { playSound('doubleJump'); this.rotation = 0; createParticles(this.x + this.w/2, this.y + this.h/2, 15, this.color); }
+                    this.jumpsLeft--;
+                }
+            }
+            update() {
+                this.dy += this.gravity; this.y += this.dy;
+                let ground = canvas.height - 50;
+                
+                if (this.y + this.h >= ground) { this.y = ground - this.h; this.dy = 0; this.jumpsLeft = 2; this.rotation = 0; } else { this.rotation += 12; }
+                
+                // Dinamik Tavan Çarpışması (Kafayı Tavana Çarpma)
+                // -5 piksellik bir tolerans var ki hemen haksız yere ölmesin
+                if (ceil.active && this.y < ceil.y - 5) {
+                    triggerGameOver();
+                } else if (!ceil.active && this.y < 0) {
+                    this.y = 0; this.dy = 0; // Normal üst sınır
+                }
+
+                this.trail.push({x: this.x, y: this.y, rot: this.rotation}); if (this.trail.length > 6) this.trail.shift();
+            }
+            draw() {
+                ctx.save();
+                for(let i=0; i<this.trail.length; i++) {
+                    ctx.fillStyle = `rgba(0, 255, 255, ${(i/this.trail.length)*0.3})`;
+                    ctx.translate(this.trail[i].x + this.w/2, this.trail[i].y + this.h/2); ctx.rotate(this.trail[i].rot * Math.PI / 180);
+                    ctx.fillRect(-this.w/2, -this.h/2, this.w, this.h); ctx.rotate(-this.trail[i].rot * Math.PI / 180); ctx.translate(-(this.trail[i].x + this.w/2), -(this.trail[i].y + this.h/2));
+                }
+                ctx.restore(); ctx.save();
+                ctx.translate(this.x + this.w/2, this.y + this.h/2); ctx.rotate(this.rotation * Math.PI / 180);
+                ctx.shadowBlur = 15; ctx.shadowColor = this.color; ctx.fillStyle = this.color; ctx.fillRect(-this.w/2, -this.h/2, this.w, this.h);
+                ctx.fillStyle = '#000'; ctx.fillRect(-this.w/4, -this.h/4, this.w/2, this.h/2); ctx.restore();
+            }
+        }
+
+        // DEV KOVALAYICI TESTERE (NEMESIS)
+        class NemesisChaser {
+            constructor() {
+                this.active = false; this.x = -400; this.radius = 250; this.rotation = 0; this.state = 'idle';
+                this.timer = 0; this.color = '#ff6600';
+            }
+            trigger() { if(this.active) return; this.active = true; this.state = 'entering'; this.x = -600; manageSiren(true); }
+            update() {
+                if(!this.active) return;
+                this.rotation += 20;
+                
+                // Oyuncunun yeterince gerisinde kalır, asla değmez. Sadece panik yaratır.
+                let targetX = player.x - this.radius - 50; 
+                
+                if (this.state === 'entering') {
+                    this.x += 4; chaserShake = 2;
+                    if (this.x >= targetX) { this.state = 'chasing'; this.timer = 300; } 
+                } else if (this.state === 'chasing') {
+                    this.x = targetX + Math.sin(frames * 0.1) * 10; 
+                    chaserShake = 3; this.timer--;
+                    if(frames % 10 === 0) createParticles(this.x + this.radius*0.9, canvas.height/2, 2, this.color);
+                    if (this.timer <= 0) this.state = 'leaving';
+                } else if (this.state === 'leaving') {
+                    this.x -= 3; chaserShake = 1;
+                    if (this.x < -600) { this.active = false; this.state = 'idle'; chaserShake = 0; manageSiren(false); }
+                }
+            }
+            draw() {
+                if(!this.active) return;
+                ctx.save(); ctx.translate(this.x, canvas.height/2); ctx.rotate(this.rotation * Math.PI / 180);
+                ctx.shadowBlur = 30; ctx.shadowColor = this.color; ctx.fillStyle = '#110000';
+                ctx.beginPath();
+                for(let i=0; i<16; i++) {
+                    ctx.lineTo(0, -this.radius); ctx.rotate(Math.PI / 16); ctx.lineTo(0, -this.radius*0.8); ctx.rotate(Math.PI / 16);
+                }
+                ctx.fill();
+                ctx.strokeStyle = this.color; ctx.lineWidth = 5; ctx.stroke();
+                ctx.fillStyle = this.color; ctx.beginPath(); ctx.arc(0,0, this.radius*0.3, 0, Math.PI*2); ctx.fill();
+                ctx.restore();
+                
+                ctx.fillStyle = `rgba(255, 100, 0, ${Math.abs(Math.sin(frames*0.05))*0.2})`;
+                ctx.fillRect(0,0, canvas.width, canvas.height);
+            }
+        }
+
+        // ENGELLER
+        class Obstacle {
+            constructor() {
+                let rand = Math.random();
+                this.x = canvas.width + 50; this.passed = false; this.color = '#ff0033';
+                
+                // DİNAMİK ZORLUK: Eğer tavan iniyorsa/inikse sadece güvenli engeller at.
+                if (ceil.active && ceil.y > 50) {
+                    if (rand < 0.5) {
+                        // Çok kısa yer dikiti (Sadece minik bir dokunuşla geçilir, tavanla çakışmaz)
+                        this.type = 'short_ground'; this.w = 40; this.h = 30; this.y = canvas.height - 50 - this.h;
+                    } else {
+                        // Alçaltılmış Testere (Zıplamazsan oyuncunun üstünden teğet geçer)
+                        this.type = 'low_saw'; this.w = 40; this.h = 40; this.y = canvas.height - 145; this.rotation = 0;
+                    }
+                } 
+                // Normal Durum Engelleri
+                else {
+                    if (rand < 0.4) {
+                        this.type = 'ground'; this.w = Math.random()*30+40; this.h = Math.random()*70+50; this.y = canvas.height - 50 - this.h;
+                    } else if (rand < 0.7) {
+                        this.type = 'low_saw'; this.w = 50; this.h = 50; this.y = canvas.height - 150 - (Math.random()*20); this.rotation = 0;
+                    } else if (rand < 0.85) {
+                        this.type = 'falling_trap'; this.w = 60; this.h = 40; this.y = 50; this.isFalling = false; this.fallGravity = 0; this.triggerDistance = canvas.width * 0.45;
+                    } else {
+                        this.type = 'laser_gate'; this.w = 20; this.h = canvas.height / 2.5; this.y = canvas.height - 50 - this.h; this.laserTimer = 0; this.laserActive = true;
+                    }
+                }
+            }
+            update() {
+                this.x -= gameSpeed;
+                if (this.type === 'low_saw') this.rotation -= 15;
+                if (this.type === 'falling_trap') {
+                    if (!this.isFalling && (this.x - player.x) < this.triggerDistance && (this.x - player.x) > 0) this.isFalling = true;
+                    if (this.isFalling) {
+                        this.fallGravity += 1.5; this.y += this.fallGravity;
+                        if (this.y >= canvas.height - 50 - this.h) { this.y = canvas.height - 50 - this.h; if (this.fallGravity > 0) { playSound('heavyDrop'); screenShakeTime = 5; createParticles(this.x+this.w/2, this.y+this.h, 15, '#ff0033'); this.fallGravity = 0; } }
+                    }
+                }
+                if (this.type === 'laser_gate') {
+                    this.laserTimer++; if(this.laserTimer > 80) { this.laserActive = !this.laserActive; this.laserTimer = 0; }
+                }
+            }
+            draw() {
+                ctx.shadowBlur = 15; ctx.shadowColor = this.color; ctx.fillStyle = this.color;
+                
+                if (this.type === 'ground' || this.type === 'short_ground') {
+                    ctx.beginPath(); ctx.moveTo(this.x, this.y+this.h); ctx.lineTo(this.x+this.w/2, this.y); ctx.lineTo(this.x+this.w, this.y+this.h); ctx.fill();
+                    ctx.strokeStyle='#000'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(this.x+this.w/2, this.y+10); ctx.lineTo(this.x+this.w/2, this.y+this.h); ctx.stroke();
+                } else if (this.type === 'low_saw') {
+                    ctx.save(); ctx.translate(this.x+this.w/2, this.y+this.h/2); ctx.rotate(this.rotation*Math.PI/180);
+                    ctx.beginPath(); for(let i=0; i<8; i++){ ctx.lineTo(0, -this.w/2); ctx.rotate(Math.PI/8); ctx.lineTo(0, -this.w/4); ctx.rotate(Math.PI/8); } ctx.fill();
+                    ctx.fillStyle='#050505'; ctx.shadowBlur=0; ctx.beginPath(); ctx.arc(0,0,this.w/4,0,Math.PI*2); ctx.fill(); ctx.restore();
+                } else if (this.type === 'falling_trap') {
+                    if (!this.isFalling) { ctx.shadowBlur=0; ctx.fillStyle='rgba(255,0,51,0.2)'; ctx.fillRect(this.x+this.w/2-2, this.y+this.h, 4, canvas.height-50-this.y); }
+                    ctx.shadowBlur=10; ctx.fillStyle='#ff0033'; ctx.fillRect(this.x, this.y, this.w, this.h);
+                    ctx.beginPath(); for(let i=0; i<3; i++){ let sx = this.x+(i*(this.w/3))+5; ctx.moveTo(sx, this.y+this.h); ctx.lineTo(sx+5, this.y+this.h+15); ctx.lineTo(sx+10, this.y+this.h); } ctx.fill();
+                    ctx.fillStyle='#220000'; ctx.fillRect(this.x+5, this.y+5, this.w-10, this.h-10);
+                } else if (this.type === 'laser_gate') {
+                    ctx.shadowBlur=10; 
+                    ctx.fillRect(this.x-5, canvas.height-50-15, 30, 15); 
+                    ctx.fillRect(this.x-5, this.y, 30, 15);
+                    if(this.laserActive) { ctx.fillStyle='rgba(255,0,51,0.8)'; ctx.fillRect(this.x+5, this.y+15, 10, this.h-30); }
+                    else { ctx.fillStyle='rgba(255,0,51,0.1)'; ctx.fillRect(this.x+9, this.y+15, 2, this.h-30); }
+                }
+                ctx.shadowBlur=0;
+            }
+        }
+
+        class Particle {
+            constructor(x,y,c,bg=false){ this.x=x; this.y=y; this.c=c; this.bg=bg;
+                if(bg){ this.s=Math.random()*2+1; this.vx=Math.random()*-1-(gameSpeed*0.2); this.vy=0; this.l=1; this.d=0; }
+                else{ this.s=Math.random()*6+2; let a=Math.random()*Math.PI*2, sp=Math.random()*8+2; this.vx=Math.cos(a)*sp; this.vy=Math.sin(a)*sp; this.l=1; this.d=Math.random()*0.03+0.02; }
+            }
+            update(){ this.x+=this.vx; this.y+=this.vy; if(!this.bg) this.l-=this.d; else { this.vx=Math.random()*-1-(gameSpeed*0.2); if(this.x<0){ this.x=canvas.width; this.y=Math.random()*canvas.height; } } }
+            draw(){ ctx.globalAlpha=Math.max(0,this.l); ctx.fillStyle=this.c; ctx.fillRect(this.x,this.y,this.s,this.s); ctx.globalAlpha=1; }
+        }
+
+        let player, chaser, obstacles = [], particles = [], bgParticles = [], timeSinceSpawn = 0;
+
+        function initBG() { bgParticles=[]; for(let i=0; i<80; i++) bgParticles.push(new Particle(Math.random()*canvas.width, Math.random()*canvas.height, 'rgba(100,200,255,0.2)', true)); }
+        function createParticles(x,y,n,c) { for(let i=0; i<n; i++) particles.push(new Particle(x,y,c)); }
+
+        function startGame() { if(audioCtx.state==='suspended') audioCtx.resume(); playSound('click'); showScreen(null); document.getElementById('hud').classList.remove('hidden'); resetGame(); hasUsedRevive=false; document.getElementById('btn-watch-ad').style.display='flex'; gameState='PLAYING'; if(!animationId) gameLoop(); }
+        
+        function resetGame() { 
+            player = new Player(); chaser = new NemesisChaser(); obstacles=[]; particles=[]; initBG(); 
+            score=0; frames=0; gameSpeed=baseGameSpeed; timeSinceSpawn=0; screenShakeTime=0; chaserShake=0; 
+            ceil.active = false; ceil.state = 'idle'; ceil.y = 0; // Tavanı sıfırla
+            manageSiren(false); document.getElementById('scoreVal').innerText=score; 
+        }
+
+        function resetGameAndStart() { startGame(); }
+        function pauseGame() { if(gameState!=='PLAYING') return; playSound('click'); gameState='PAUSED'; manageSiren(false); document.getElementById('hud').classList.add('hidden'); showScreen('screen-pause'); }
+        function resumeGame() { playSound('click'); showScreen(null); document.getElementById('hud').classList.remove('hidden'); gameState='PLAYING'; if(chaser.active) manageSiren(true); requestAnimationFrame(gameLoop); }
+        function quitToMenu() { playSound('click'); gameState='MENU'; manageSiren(false); document.getElementById('hud').classList.add('hidden'); showScreen('screen-main'); }
+
+        function checkCol(p, o) {
+            let px = p.x+p.w/2, py = p.y+p.h/2, ox, oy, pr = p.w*0.35, orX, orY;
+            if (o.type === 'laser_gate') { if(!o.laserActive) return false; ox=o.x+10; oy=o.y+o.h/2; orX=8; orY=o.h/2; }
+            else { ox=o.x+o.w/2; oy=o.y+o.h/2; orX=o.w*0.4; orY=o.h*0.4; }
+            return (Math.abs(px-ox) < pr+orX) && (Math.abs(py-oy) < pr+orY);
+        }
+
+        function triggerGameOver() {
+            playSound('crash'); manageSiren(false); gameState='GAMEOVER'; screenShakeTime=20; chaserShake=0; if(chaser) chaser.active=false; document.getElementById('hud').classList.add('hidden');
+            if(score>highScore) { highScore=score; localStorage.setItem('neonEscapeHighScoreV6', highScore); }
+            document.getElementById('final-score-val').innerText=score;
+            createParticles(player.x+20, player.y+20, 60, player.color); createParticles(player.x+20, player.y+20, 30, '#ff0033');
+            if(hasUsedRevive) document.getElementById('btn-watch-ad').style.display='none';
+            setTimeout(()=>showScreen('screen-gameover'), 800);
+        }
+
+        function watchAdToContinue() {
+            playSound('click'); showScreen(null); document.getElementById('ad-overlay').classList.remove('hidden'); gameState='AD';
+            let t = 3; document.getElementById('ad-timer').innerText = t;
+            let iv = setInterval(()=>{ t--; document.getElementById('ad-timer').innerText=t; if(t<=0){ clearInterval(iv); document.getElementById('ad-overlay').classList.add('hidden'); revive(); } }, 1000);
+        }
+        function revive() {
+            hasUsedRevive=true; obstacles=[]; chaser.active=false; chaser.state='idle'; 
+            ceil.active = false; ceil.state = 'idle'; ceil.y = 0; // Tavanı sıfırla
+            screenShakeTime=0; chaserShake=0; 
+            player.y=canvas.height/3; player.dy=0; player.jumpsLeft=2;
+            document.getElementById('hud').classList.remove('hidden');
+            let c = 3; function cnt() { if(c>0){ ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fillRect(0,0,canvas.width,canvas.height); ctx.fillStyle='#00ffff'; ctx.font='bold 100px Courier New'; ctx.textAlign='center'; ctx.fillText(c, canvas.width/2, canvas.height/2); c--; setTimeout(cnt,1000); } else { ctx.textAlign='left'; gameState='PLAYING'; requestAnimationFrame(gameLoop); } } cnt();
+        }
+
+        function drawGlobalCeiling() {
+            if (ceil.y > 0) {
+                ctx.shadowBlur = 10; ctx.shadowColor = '#ff0033'; ctx.fillStyle = '#110000';
+                ctx.fillRect(0, 0, canvas.width, ceil.y);
+                
+                ctx.strokeStyle = '#ff0033'; ctx.lineWidth = 4;
+                ctx.beginPath(); ctx.moveTo(0, ceil.y); ctx.lineTo(canvas.width, ceil.y); ctx.stroke();
+                
+                // Uyarı Metni
+                ctx.fillStyle = `rgba(255, 0, 51, ${Math.abs(Math.sin(frames*0.1))})`;
+                ctx.font = 'bold 24px Courier New'; ctx.textAlign = 'center';
+                ctx.fillText(i18n[settings.lang].danger_text, canvas.width/2, ceil.y - 15);
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        function update() {
+            if(gameState!=='PLAYING') return;
+            player.update(); chaser.update(); frames++; timeSinceSpawn++;
+            if(frames%300===0) gameSpeed+=0.6; 
+            
+            if(!chaser.active && frames > 500 && Math.random() < 0.001) chaser.trigger();
+
+            // YENİ TAVAN MANTIĞI: Her 800 karede bir tavan tetiklenir (ve sadece oyun başından biraz sonra)
+            if (!ceil.active && frames > 200 && frames % 800 === 0) {
+                ceil.active = true;
+                ceil.state = 'lowering';
+                // Tavan oyuncuya küçük bir zıplama hakkı verecek kadar iner (Yere 130px kalana kadar)
+                ceil.targetY = canvas.height - 130; 
+                playSound('heavyDrop');
+            }
+
+            if (ceil.active) {
+                if (ceil.state === 'lowering') {
+                    ceil.y += 1.5; // Yavaşça iner
+                    if (ceil.y >= ceil.targetY) {
+                        ceil.y = ceil.targetY;
+                        ceil.state = 'holding';
+                        ceil.holdTimer = 400; // Tavan aşağıda yaklaşık 6 saniye kalır
+                        screenShakeTime = 10;
+                    }
+                } else if (ceil.state === 'holding') {
+                    ceil.holdTimer--;
+                    if (ceil.holdTimer <= 0) ceil.state = 'raising';
+                } else if (ceil.state === 'raising') {
+                    ceil.y -= 1.0; // Yavaşça çıkar
+                    if (ceil.y <= 0) {
+                        ceil.y = 0;
+                        ceil.active = false;
+                        ceil.state = 'idle';
+                    }
+                }
+            }
+
+            bgParticles.forEach(p=>p.update());
+
+            let spawnInt = Math.max(30, 90 - (gameSpeed * 2.5)); 
+            if(timeSinceSpawn > spawnInt && Math.random() > 0.4) { 
+                obstacles.push(new Obstacle()); timeSinceSpawn=0;
+            }
+
+            for(let i=obstacles.length-1; i>=0; i--){
+                let o = obstacles[i]; o.update();
+                if(checkCol(player, o)) { triggerGameOver(); return; }
+                if(!o.passed && player.x > o.x+o.w) { score++; document.getElementById('scoreVal').innerText=score; playSound('score'); o.passed=true; }
+                if(o.x+o.w < 0) obstacles.splice(i,1);
+            }
+            for(let i=particles.length-1; i>=0; i--){ particles[i].update(); if(particles[i].l<=0) particles.splice(i,1); }
+        }
+
+        function draw() {
+            if(gameState==='MENU' || gameState==='PAUSED' || gameState==='AD') return;
+            ctx.save();
+            let totalShake = screenShakeTime > 0 ? screenShakeTime : chaserShake;
+            if(totalShake > 0) { ctx.translate((Math.random()-0.5)*totalShake*3, (Math.random()-0.5)*totalShake*3); if(screenShakeTime>0) screenShakeTime--; }
+
+            ctx.fillStyle='rgba(5,5,8,0.4)'; ctx.fillRect(0,0,canvas.width,canvas.height);
+            ctx.shadowBlur=10; ctx.shadowColor='#00ffff'; ctx.strokeStyle='rgba(0,255,255,0.5)'; ctx.lineWidth=2;
+            let off = (frames*gameSpeed)%40; ctx.beginPath(); ctx.moveTo(0, canvas.height-50); ctx.lineTo(canvas.width, canvas.height-50);
+            for(let i=0; i<canvas.width+40; i+=40) { ctx.moveTo(i-off, canvas.height-50); ctx.lineTo(i-off-20, canvas.height); } ctx.stroke(); ctx.shadowBlur=0;
+
+            bgParticles.forEach(p=>p.draw()); chaser.draw(); obstacles.forEach(o=>o.draw());
+            
+            drawGlobalCeiling(); // Tavanı Çiz
+            
+            if(gameState!=='GAMEOVER') player.draw(); particles.forEach(p=>p.draw());
+
+            let grad = ctx.createRadialGradient(canvas.width/2, canvas.height/2, canvas.height*0.3, canvas.width/2, canvas.height/2, canvas.width*0.8);
+            grad.addColorStop(0, 'rgba(0,0,0,0)'); grad.addColorStop(1, 'rgba(0,0,0,0.85)'); ctx.fillStyle=grad; ctx.fillRect(0,0,canvas.width,canvas.height);
+            ctx.restore();
+            if(gameState==='GAMEOVER') for(let i=particles.length-1; i>=0; i--){ particles[i].update(); if(particles[i].l<=0) particles.splice(i,1); }
+        }
+
+        function gameLoop() { update(); draw(); if(gameState==='PLAYING' || gameState==='GAMEOVER') animationId=requestAnimationFrame(gameLoop); else animationId=null; }
+        
+        function handleInput(e) { if(e.target.tagName==='BUTTON' || e.target.closest('button')) return; if(e.type!=='keydown') e.preventDefault(); if(gameState==='PLAYING') player.jump(); }
+        window.addEventListener('touchstart', handleInput, {passive:false}); window.addEventListener('mousedown', handleInput);
+        window.addEventListener('keydown', (e)=>{ if(e.code==='Space'||e.code==='ArrowUp') handleInput(e); if(e.code==='Escape'||e.code==='KeyP'){ if(gameState==='PLAYING') pauseGame(); else if(gameState==='PAUSED') resumeGame(); }});
+
+        initBG(); draw();
+    </script>
+</body>
+</html>
+
